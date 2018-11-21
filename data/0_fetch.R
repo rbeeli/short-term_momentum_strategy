@@ -3,6 +3,7 @@ library(data.table)
 library(readr)
 library(bsts)
 
+
 # connect to WRDS server
 wrds <- dbConnect(Postgres(), host='wrds-pgdata.wharton.upenn.edu', port=9737, dbname='wrds', sslmode='require', user='rbeeli', password=read_file('CRSP_pw.txt'))
 
@@ -13,27 +14,28 @@ res <- dbSendQuery(wrds, paste0(
        from crsp.msf as m
   left join crsp.msenames as b on b.permno=m.permno
       where (m.date >= '1963-07-01' and m.date <= '2016-12-31')
-        and primexch IN('N','A','Q')
-        and shrcd IN(10, 11)"))
-data <- data.frame(dbFetch(res, n=-1))
+        and b.primexch IN('N','A','Q')
+        and b.shrcd IN(10, 11)
+        and b.namedt <= m.date
+        and m.date <= b.nameendt"))
+data <- dbFetch(res, n=-1)
 dbClearResult(res)
+
 
 # adjust for delisting returns
 # https://wrds-www.wharton.upenn.edu/pages/support/research-wrds/wrds-research-applications/size-portfolios-common-stocks-using-nyse-breakpoints-python/
 res <- dbSendQuery(wrds, paste0("select permno, dlret, dlstdt from crsp.msedelist"))
-dldata <- data.frame(dbFetch(res, n=-1))
+dldata <- dbFetch(res, n=-1)
 dbClearResult(res)
 
-# set delisting date to last day of month of delisting date
+# set delisting date to last day of delisting month
 dldata$dlstdt.eom <- LastDayInMonth(dldata$dlstdt)
 
 # merge delisting data with stock data
 data <- merge(data, dldata, by.x=c('permno', 'date'), by.y=c('permno', 'dlstdt.eom'), all.x=T)
-data <- data[, !'dlstdt']
 
 # calculate total return
 data$totret <- ifelse(is.na(data$dlret), data$ret, (1 + data$ret) * (1 + data$dlret) - 1)
-
 
 
 # close connection
@@ -43,7 +45,7 @@ rm(wrds)
 
 
 # write to CSV files
-fwrite(data, 'crspa.msf.csv', sep=';')
+fwrite(data, 'crsp.msf.csv', sep=';')
 
 
 
@@ -71,12 +73,20 @@ fwrite(data, 'crspa.msf.csv', sep=';')
 # data <- dbFetch(res, n=-1)
 # dbClearResult(res)
 # data
+# 
+# res <- dbSendQuery(wrds, "select column_name, data_type
+#                    from information_schema.columns
+#                    where table_schema like 'crsp' and table_name='msenames'")
+# data <- dbFetch(res, n=-1)
+# dbClearResult(res)
+# data
 
-res <- dbSendQuery(wrds, "select column_name, data_type
-                   from information_schema.columns
-                   where table_schema like 'crsp' and table_name='msenames'")
-data <- dbFetch(res, n=-1)
-dbClearResult(res)
-data
+
+
+
+
+
+
+
 
 

@@ -33,3 +33,4 @@ vignettes/*.pdf
 rsconnect/
 
 CRSP_pw.txt
+crsp.msf.csv

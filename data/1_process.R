@@ -3,8 +3,9 @@ library(plyr)
 library(tictoc)
 library(RColorBrewer)
 
-# load from CSV
-data <- fread('crspa.msf.csv', header=T)
+
+# load data from file system
+data <- fread('crsp.msf.csv', header=T)
 colnames(data) <- sapply(colnames(data), tolower)
 
 setorder(data, date)
@@ -12,16 +13,8 @@ setindex(data, date)
 setindex(data, permno)
 
 
-# remove records without a return (no previous month price available)
-data <- data[which(data$ret != 'C'), ]
-
-
-# convert `ret` and `vol` to decimal type
-data$ret <- as.double(data$ret)
-data$vol <- as.double(data$vol)
-
-# ensure positive price values
-# when there are no trades, CRSP stores a negative value [-1*(bid/ask average)] in the PRC variable
+# ensure positive price values:
+#  - when there are no trades, CRSP stores a negative value [-1*(bid/ask average)] in the PRC variable
 data$prc <- abs(data$prc)
 
 # adjust volume according to paper:
