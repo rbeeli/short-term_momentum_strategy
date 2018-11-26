@@ -1,0 +1,85 @@
+source('movingWindow.R')
+
+
+test.equal <- function(actual, expected) {
+  values <- unlist(actual)
+  
+  if (length(expected) != length(values) ||
+      !all(expected == values, na.rm=T) ||
+      !all(which(is.na(values)) == which(is.na(expected))))
+  {
+    cat('Expected --------------------------\n')
+    print(expected)
+    cat('Actual (unlisted) -----------------\n')
+    print(values)
+    stop("Expected does not equal actual values, check previous output.")
+  }
+}
+
+
+
+# #################################################
+# # Test: General
+# #################################################
+# 
+# # empty result: windowSize > # data rows
+# test.equal(movingWindow(sum, matrix(nrow=1, ncol=1), windowSize=2), c())
+# 
+# # empty result: windowSize + offset > # data rows
+# test.equal(movingWindow(sum, matrix(nrow=1, ncol=1), windowSize=1, windowOffset=1), c())
+# 
+# # return current value (windowSize=1)
+# test.equal(movingWindow(function(x) x, as.matrix(1:10), windowSize=1), 1:10)
+# 
+# # return every 3th value (windowSize=1, stepSize=3)
+# test.equal(movingWindow(function(x) x, as.matrix(1:10), windowSize=1, stepSize=3), c(1, 4, 7, 10))
+# 
+# # return previous value (windowSize=1, windowOffset=1)
+# test.equal(movingWindow(function(x) x, as.matrix(1:10), windowSize=1, windowOffset=1), 1:9)
+# 
+# # return previous value every 3th time (windowSize=1, windowOffset=1)
+# test.equal(movingWindow(function(x) x, as.matrix(1:10), windowSize=1, stepSize=3, windowOffset=1), c(1, 4, 7))
+# 
+# # sum current and previous values (windowSize=2)
+# test.equal(movingWindow(sum, as.matrix(1:10), windowSize=2), c(1+2, 2+3, 3+4, 4+5, 5+6, 6+7, 7+8, 8+9, 9+10))
+# 
+# # sum past two values, currentValue is ignored (windowSize=2, windowOffset=1)
+# test.equal(movingWindow(sum, as.matrix(1:10), windowSize=2, windowOffset=1), c(1+2, 2+3, 3+4, 4+5, 5+6, 6+7, 7+8, 8+9))
+# 
+# # sum past 3 values every 2nd time (windowSize=3, stepSize=2, windowOffset=1)
+# test.equal(movingWindow(sum, as.matrix(1:10), windowSize=3, stepSize=2, windowOffset=1), c(1+2+3, 3+4+5, 5+6+7, 7+8+9))
+
+
+
+#################################################
+# Test: keepFirstWindowRows
+#################################################
+
+# return current value (windowSize=1)
+test.equal(movingWindow(function(x) x, as.matrix(1:10), windowSize=1, keepFirstWindowRows=T), 1:10)
+
+# return every 3th value (windowSize=1, stepSize=3)
+test.equal(movingWindow(function(x) x, as.matrix(1:10), windowSize=1, stepSize=3, keepFirstWindowRows=T), c(1, 4, 7, 10))
+
+# return previous value (windowSize=1, windowOffset=1)
+test.equal(movingWindow(function(x) x, as.matrix(1:10), windowSize=1, windowOffset=1, keepFirstWindowRows=T), c(NA, 1:9))
+
+# sum previous 3 values (windowSize=1, windowOffset=1)
+test.equal(movingWindow(sum, as.matrix(1:10), windowSize=3, windowOffset=1, keepFirstWindowRows=T), c(NA, NA, NA, 1+2+3, 2+3+4, 3+4+5, 4+5+6, 5+6+7, 6+7+8, 7+8+9))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

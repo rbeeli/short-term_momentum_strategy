@@ -1,0 +1,14 @@
+Unconditional
+=============
+Sharpe market:  	0.5483927
+Sharpe strategy:  	1.298945
+Sortino market:  	0.7905611
+Sortino strategy:	2.731551
+
+
+Conditional
+===========
+Sharpe market:		0.5483927
+Sharpe strategy:	1.466504
+Sortino market:		0.7905611
+Sortino strategy:	3.508582

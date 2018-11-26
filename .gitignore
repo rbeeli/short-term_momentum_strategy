@@ -32,5 +32,5 @@ vignettes/*.pdf
 # Shiny token, see https://shiny.rstudio.com/articles/shinyapps.html
 rsconnect/
 
-CRSP_pw.txt
+WRDS_pwd.txt
 crsp.msf.csv

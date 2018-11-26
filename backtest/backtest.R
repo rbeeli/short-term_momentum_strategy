@@ -3,60 +3,53 @@ library(plyr)
 library(tictoc)
 library(RColorBrewer)
 library(matrixStats)
-
+library(xlsx)
 
 ####################################################
-# load data & pre-process
+# load data
 ####################################################
 
 data <- fread('../data/crsp.msf.csv', header=T)
 colnames(data) <- sapply(colnames(data), tolower)
 
 setorder(data, date)
-setindex(data, date)
 setindex(data, permno)
+setindex(data, primexch)
 
-
-# ensure positive price values:
-#  - when there are no trades, CRSP stores a negative value [-1*(bid/ask average)] in the PRC variable
-data$prc <- abs(data$prc)
-
-# adjust volume according to paper:
-#  - prior to February 2001, we divide Nasdaq volume by 2.0.
-#  - from February 2001 to December 2001, we divide by 1.8.
-#  - From January 2002 to December 2003, we divide by 1.6.
-idxs <- which(data$primexch == 'N' & data$date < 20010201)
-data[idxs, 'vol'] <- data[idxs, 'vol'] / 2.0
-
-idxs <- which(data$primexch == 'N' & data$date >= 20010201 & data$date <= 20011231)
-data[idxs, 'vol'] <- data[idxs, 'vol'] / 1.8
-
-idxs <- which(data$primexch == 'N' & data$date >= 20020101 & data$date <= 20031231)
-data[idxs, 'vol'] <- data[idxs, 'vol'] / 1.6
+stopifnot(length(which(is.na(data$prc))) == 0)
+stopifnot(length(which(is.na(data$ret))) == 0)
+stopifnot(length(which(is.na(data$vol))) == 0)
+stopifnot(length(which(is.na(data$shrout))) == 0)
 
 
 # calculate turnover according to paper
-data$turnover <- (data$vol * 100) / (data$shrout * 1000)
+data$turnover <- data$vol / data$shrout
 
-# calculate market cap
-data$mcap <- data$prc * data$shrout
 
 # reshape to wide format
 data.ret <- dcast(data, date ~ permno, value.var=c('ret'))
-data.prc <- dcast(data, date ~ permno, value.var=c('prc'))
 data.turnover <- dcast(data, date ~ permno, value.var=c('turnover'))
-data.mcap <- dcast(data, date ~ permno, value.var=c('mcap'))
+data.marketcap <- dcast(data, date ~ permno, value.var=c('marketcap'))
+data.exch <- dcast(data, date ~ permno, value.var=c('primexch'))
 
 # more efficient representations
 dates <- data.ret$date
 data.ret <- as.matrix(data.ret[, !'date'])
-data.prc <- as.matrix(data.prc[, !'date'])
 data.turnover <- as.matrix(data.turnover[, !'date'])
-data.mcap <- as.matrix(data.mcap[, !'date'])
+data.marketcap <- as.matrix(data.marketcap[, !'date'])
+data.exch <- as.matrix(data.exch[, !'date'])
+
+# excess returns
+data.ff <- fread('../data/fama.french.factors.csv', header=T)
+data.ff[, 2:ncol(data.ff)] <- data.ff[, !'date'] / 100 # stored in percentage values
+data.ret.ex <- data.ret - matrix(rep(data.ff$rf, ncol(data.ret)), ncol=ncol(data.ret))
+
+# sanity check: stock data matches Fama-French factors data (date)
+stopifnot(all(dates == data.ff$date))
 
 # free memory
 rm(data)
-gc()
+
 
 
 
@@ -66,7 +59,7 @@ gc()
 # ####################################################
 # 
 # # plot market cap over time
-# plot(rowSums(data.mcap[, !'date'], na.rm=T), type='l', main="Total market cap (1964 - 2016)", ylab='market capitalization')
+# plot(rowSums(data.marketcap[, !'date'], na.rm=T), type='l', main="Total market cap (1964 - 2016)", ylab='market capitalization')
 # 
 # # plot average monthly returns over time
 # avg.ret <- rowMeans(data.ret[, !'date'], na.rm=T)
@@ -89,44 +82,114 @@ gc()
 # backtest
 ####################################################
 
-# The largest capitalizations in each decile of the NYSE index serve as the breakpoints
-# that are applied to various exchange groupings of the universe.
+source('doublesort.R')
+source('movingWindow.R')
+source('perf.statistics.R')
 
-# The returns of the combined portfolios are the value-weighted returns of the relevant deciles.
+# collect previous month's momentum, turnover and market cap.
+windowSize <- 1
+windowOffset <- 1
+measure.momentum <- movingWindow(function(x) x, data.ret, windowSize=windowSize, windowOffset=windowOffset, keepFirstWindowRows=T)
+measure.turnover <- movingWindow(function(x) x, data.turnover, windowSize=windowSize, windowOffset=windowOffset, keepFirstWindowRows=T)
+measure.marketCap <- movingWindow(function(x) x, data.marketcap, windowSize=windowSize, windowOffset=windowOffset, keepFirstWindowRows=T)
+
+# portfolio breakpoints (decile) for momentum and turnover are derived using only NYSE stocks
+nyse.stocks <- matrix(ifelse(data.exch == 'N', 1, NA), nrow=nrow(data.exch))
+colnames(nyse.stocks) <- colnames(data.exch)
+
+nyse.momentum <- nyse.stocks * measure.momentum
+nyse.turnover <- nyse.stocks * measure.turnover
+
+breakpoints.NYSE <- matrix(NA, nrow=nrow(marketcap.NYSE), ncol=10)
+for (i in 1:nrow(marketcap.NYSE)) {
+  breakpoints.NYSE[i, ] <- quantile(cumsum(na.omit(marketcap.NYSE[i, ])), probs=seq(0.1, 1.0, 0.1))
+}
+
+# free memory
+rm(marketcap.NYSE)
 
 
+# sanity checks
+stopifnot(length(measure.momentum) == length(measure.turnover))
+stopifnot(length(measure.turnover) == length(measure.marketCap))
+stopifnot(nrow(data.ret) == length(measure.momentum))
+stopifnot(nrow(data.ret.ex) == length(measure.momentum))
+stopifnot(nrow(data.turnover) == length(measure.momentum))
+stopifnot(nrow(data.marketcap) == length(measure.momentum))
+# stopifnot(nrow(data.breakpoints) == nrow(data.ret))
 
-calc.momentum <- function(returns, volumes, windowSize) {
-  mom <- matrix(NA, nrow=nrow(returns), ncol=ncol(returns))
+# double-sorted data matrix - avg. returns in cells, momentum in columns, turnover in rows
+n.rows <- 10
+n.columns <- 10
+sort.func.name <- 'doublesort.cond'
+# sort.func.name <- 'doublesort.uncond'
+sort.func <- match.fun(sort.func.name)
+avg.doublesorted <- matrix(0, nrow=n.rows, ncol=n.columns, dimnames=list(paste0('turnover', 1:n.rows), paste0('ret', 1:n.columns)))
+strategy.ret <- c()
+market.ret <- c()
+range <- (windowSize + 1):(nrow(data.ret) - windowOffset)
+
+for (row in range) {
+  rets <- data.ret[row, ]
+  momentum <- measure.momentum[[row]]
+  turnover <- measure.turnover[[row]]
+  marketCap <- measure.marketCap[[row]]
   
-  from <- windowSize
-  to <- nrow(returns)
+  # only consider returns for which we have a turnover and momentum value and no NA values
+  idx.intersect <- intersect(which(!is.na(rets)),
+                             intersect(which(!is.na(momentum)),
+                                       intersect(which(!is.na(turnover)),
+                                                 which(!is.na(marketCap)))))
+  rets <- rets[idx.intersect]
+  momentum <- momentum[idx.intersect]
+  turnover <- turnover[idx.intersect]
+  marketCap <- marketCap[idx.intersect]
+  aggregationFunc <- mean
   
-  for (i in from:to) {
-    idx.from <- i - windowSize + 1
-    idx.to <- i
-    
-    wnd.data <- returns[idx.from:idx.to, ]
-    wnd.avg.mom <- colMeans(wnd.data, na.rm=T)
-    
-    mom[i, ] <- wnd.avg.mom
+  # double sort
+  if (sort.func.name == 'doublesort.cond2') {
+    doublesorted.t <- doublesort.cond2(rets, turnover, momentum, marketCap, aggregationFunc, n.rows, n.columns)
+  }
+  else {
+    doublesorted.t <- sort.func(rets, turnover, momentum, aggregationFunc, n.rows, n.columns)
   }
   
-  return(mom)
-}
-
-calc.turnover <- function(turnover, windowSize) {
-  turnover <- matrix(NA, nrow=nrow(turnover), ncol=ncol(turnover))
+  # collect returns
+  strategy.ret <- c(strategy.ret, doublesorted.t[1, 1] - doublesorted.t[1, n.columns])
+  market.ret <- c(market.ret, data.ff$mkt[row])
   
-  return(turnover)
+  avg.doublesorted <- avg.doublesorted + doublesorted.t / length(range)
 }
 
+print(avg.doublesorted)
 
-windowSize.momentum <- 1
-windowSize.turnover <- 1
 
-measure.momentum <- calc.momentum(data.ret, data.vol, windowSize.momentum)
-measure.turnover <- calc.turnover(data.turnover, windowSize.turnover)
+perf.strategy <- cumprod(1 + strategy.ret)
+perf.market <- cumprod(1 + market.ret)
+
+matplot(log(cbind(perf.market, perf.strategy)), type='l',
+        main='High-low strategy performance (log)',
+        lty=1, xlab='month', ylab='log performance starting at 1')
+
+
+
+
+
+# save table
+write.xlsx(avg.doublesorted, paste0(sort.func.name, ' ', n.rows, 'x', n.columns, '.xlsx'), sheetName='doublesort', col.names=T, row.names=T)
+
+# save performance
+write.xlsx(data.table(ret.strategy=strategy.ret, ret.market=market.ret, perf.strategy=perf.strategy, perf.market=perf.market),
+           paste0(sort.func.name, ' ', n.rows, 'x', n.columns, ' strategy.xlsx'),
+           sheetName='high - low returns', col.names=T, row.names=F)
+
+
+cat('Sharpe market: ', sharpe.ratio(market.ret, data.ff$rf[range], 12))
+cat('Sharpe strategy: ', sharpe.ratio(strategy.ret, data.ff$rf[range], 12))
+
+cat('Sortino market: ', sortino.ratio(market.ret, data.ff$rf[range], 12))
+cat('Sortino strategy: ', sortino.ratio(strategy.ret, data.ff$rf[range], 12))
+
 
 
 
