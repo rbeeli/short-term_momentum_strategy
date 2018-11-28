@@ -63,7 +63,12 @@ doublesort.cond2 <- function(targetValues, rowCriterias, rowBreakpoints, columnC
       row.matches <- which(row.ranks == row) # equals cell matches, since conditional sort
       
       # aggregate cell matches to get cell value
-      output[row, column] <- aggregationFunc(column.targetValues[row.matches])
+      if (length(row.matches) > 0) {
+        output[row, column] <- aggregationFunc(column.targetValues[row.matches])
+      }
+      else {
+        output[row, column] <- 0
+      }
     }
   }
   

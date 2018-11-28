@@ -134,38 +134,6 @@ strategy.ret <- c()
 market.ret <- c()
 range <- (windowSize + 1):(nrow(data.ret) - windowOffset)
 
-#########
-# range <- 20:30
-
-doublesort.cond2 <- function(targetValues, rowCriterias, rowBreakpoints, columnCriterias, columnBreakpoints, aggregationFunc, n.rows, n.columns) {
-  output <- matrix(NA, nrow=n.rows, ncol=n.columns)
-  
-  column.ranks <- as.numeric(cut(columnCriterias, c(-Inf, as.vector(columnBreakpoints), Inf)))
-  
-  for (column in 1:n.columns) {
-    column.matches <- which(column.ranks == column)
-    column.rowCriterias <- rowCriterias[column.matches]
-    column.targetValues <- targetValues[column.matches]
-    
-    row.ranks <- as.numeric(cut(column.rowCriterias, c(-Inf, as.vector(rowBreakpoints), Inf)))
-    
-    for (row in 1:n.rows) {
-      row.matches <- which(row.ranks == row) # equals cell matches, since conditional sort
-      
-      # aggregate cell matches to get cell value
-      if (length(row.matches) > 0) {
-        output[row, column] <- aggregationFunc(column.targetValues[row.matches])
-      }
-      else {
-        output[row, column] <- 0
-      }
-    }
-  }
-  
-  return(output)
-}
-
-
 for (row in range) {
   rets <- data.ret[row, ]
   momentum <- measure.momentum[row, ]
@@ -180,11 +148,11 @@ for (row in range) {
   rets <- rets[idx.intersect]
   momentum <- momentum[idx.intersect]
   turnover <- turnover[idx.intersect]
-  # aggregationFunc <- function(rets) {
-  #   caps <- marketCap[which(stock.names %in% names(rets))]
-  #   return(weightedMean(rets, caps))
-  # }
-  aggregationFunc <- mean
+  aggregationFunc <- function(rets) {
+    caps <- marketCap[which(stock.names %in% names(rets))]
+    return(weightedMean(rets, caps))
+  }
+  # aggregationFunc <- mean
   
   # double sort
   if (sort.func.name == 'doublesort.cond2') {
