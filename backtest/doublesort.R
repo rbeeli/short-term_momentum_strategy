@@ -47,31 +47,23 @@ doublesort.cond <- function(targetValues, rowCriterias, columnCriterias, aggrega
   return(output)
 }
 
-doublesort.cond2 <- function(targetValues, rowCriterias, columnCriterias, marketCaps, aggregationFunc, n.rows, n.columns) {
+doublesort.cond2 <- function(targetValues, rowCriterias, rowBreakpoints, columnCriterias, columnBreakpoints, aggregationFunc, n.rows, n.columns) {
   output <- matrix(NA, nrow=n.rows, ncol=n.columns)
   
-  column.ranks <- ntile(columnCriterias, n.columns)
-
+  column.ranks <- as.numeric(cut(columnCriterias, c(-Inf, as.vector(columnBreakpoints), Inf)))
+  
   for (column in 1:n.columns) {
     column.matches <- which(column.ranks == column)
     column.rowCriterias <- rowCriterias[column.matches]
     column.targetValues <- targetValues[column.matches]
-    column.marketCaps <- marketCaps[column.matches]
-
-    row.sort.idxs <- sort(column.rowCriterias, index.return=T)$ix
-    row.sort.marketCaps <- column.marketCaps[row.sort.idxs]
-    row.deciles <- ceiling(cumsum(row.sort.marketCaps) / sum(row.sort.marketCaps) * n.rows)
+    
+    row.ranks <- as.numeric(cut(column.rowCriterias, c(-Inf, as.vector(rowBreakpoints), Inf)))
     
     for (row in 1:n.rows) {
-      decile.idxs <- which(row.deciles == row)
+      row.matches <- which(row.ranks == row) # equals cell matches, since conditional sort
       
       # aggregate cell matches to get cell value
-      if (length(decile.idxs) > 0) {
-        output[row, column] <- aggregationFunc(column.targetValues[decile.idxs])
-      }
-      else {
-        output[row, column] <- 0
-      }
+      output[row, column] <- aggregationFunc(column.targetValues[row.matches])
     }
   }
   

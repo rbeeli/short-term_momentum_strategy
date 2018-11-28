@@ -11,11 +11,12 @@ wrds <- dbConnect(Postgres(), host='wrds-pgdata.wharton.upenn.edu', port=9737, d
 #######################################
 # query data from WRDS server
 #######################################
+#where (m.date >= '1983-01-01' and m.date <= '2017-12-31')
 res <- dbSendQuery(wrds, paste0(
     "select m.permno, m.permco, m.cusip, m.date, m.ret, m.prc, m.shrout, m.vol, b.shrcd, b.primexch
        from crsp.msf as m
   left join crsp.msenames as b on b.permno=m.permno
-      where (m.date >= '1983-01-01' and m.date <= '2017-12-31')
+      where (m.date >= '1963-07-01' and m.date <= '2017-12-31')
         and b.primexch IN('N','A','Q')
         and b.shrcd IN(10, 11)
         and b.namedt <= m.date
