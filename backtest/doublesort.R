@@ -1,7 +1,7 @@
 library(dplyr)
 
 
-doublesort.uncond <- function(targetValues, rowCriterias, columnCriterias, aggregationFunc, n.rows, n.columns) {
+doublesort.unconditional <- function(targetValues, rowCriterias, columnCriterias, aggregationFunc, n.rows, n.columns) {
   output <- matrix(NA, nrow=n.rows, ncol=n.columns)
   
   row.ranks <- ntile(rowCriterias, n.rows)
@@ -24,7 +24,7 @@ doublesort.uncond <- function(targetValues, rowCriterias, columnCriterias, aggre
   return(output)
 }
 
-doublesort.cond <- function(targetValues, rowCriterias, columnCriterias, aggregationFunc, n.rows, n.columns) {
+doublesort.conditional <- function(targetValues, rowCriterias, columnCriterias, aggregationFunc, n.rows, n.columns) {
   output <- matrix(NA, nrow=n.rows, ncol=n.columns)
   
   column.ranks <- ntile(columnCriterias, n.columns)
@@ -47,7 +47,7 @@ doublesort.cond <- function(targetValues, rowCriterias, columnCriterias, aggrega
   return(output)
 }
 
-doublesort.cond2 <- function(targetValues, rowCriterias, rowBreakpoints, columnCriterias, columnBreakpoints, aggregationFunc, n.rows, n.columns) {
+doublesort.conditional.colbreaks <- function(targetValues, rowCriterias, columnCriterias, columnBreakpoints, aggregationFunc, n.rows, n.columns) {
   output <- matrix(NA, nrow=n.rows, ncol=n.columns)
   
   column.ranks <- as.numeric(cut(columnCriterias, c(-Inf, as.vector(columnBreakpoints), Inf)))
@@ -57,11 +57,11 @@ doublesort.cond2 <- function(targetValues, rowCriterias, rowBreakpoints, columnC
     column.rowCriterias <- rowCriterias[column.matches]
     column.targetValues <- targetValues[column.matches]
     
-    row.ranks <- as.numeric(cut(column.rowCriterias, c(-Inf, as.vector(rowBreakpoints), Inf)))
-    
+    row.ranks <- ntile(column.rowCriterias, n.rows)
+
     for (row in 1:n.rows) {
       row.matches <- which(row.ranks == row) # equals cell matches, since conditional sort
-      
+
       # aggregate cell matches to get cell value
       if (length(row.matches) > 0) {
         output[row, column] <- aggregationFunc(column.targetValues[row.matches])
@@ -74,13 +74,3 @@ doublesort.cond2 <- function(targetValues, rowCriterias, rowBreakpoints, columnC
   
   return(output)
 }
-
-# output <- as.list(matrix(NA, nrow=10, ncol=10))
-# dim(output) <- c(10, 10)
-# 
-# output[[2,2]] <- c(1,2,3)
-
-
-
-
-

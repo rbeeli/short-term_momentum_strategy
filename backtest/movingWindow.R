@@ -28,6 +28,7 @@ movingWindow <- function(FUN, data, windowSize, stepSize=1, windowOffset=0, keep
     }
   }
   
+  # do moving window calls
   while (i <= N) {
     windowData <- data[(i - windowSize + 1):i - windowOffset, ]
     
@@ -36,9 +37,13 @@ movingWindow <- function(FUN, data, windowSize, stepSize=1, windowOffset=0, keep
     i <- i + stepSize
   }
   
+  # return result as data matrix
   if (returnAsMatrix) {
     if (length(out) > 0) {
       out <- matrix(unlist(out), byrow=TRUE, nrow=length(out))
+      
+      if (!is.null(colnames(data)))
+        colnames(out) <- colnames(data)
     }
     else {
       out <- NULL

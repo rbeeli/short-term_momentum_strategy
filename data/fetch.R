@@ -112,31 +112,38 @@ fwrite(data, 'crsp.msf.csv', sep=';')
 
 
 
-
+# data <- fread('crsp.msf.csv', header=T, sep=';')
 
 #######################################
 # Fama-French factors
 #######################################
 
 ffData <- fread('F-F_Research_Data_5_Factors_2x3.CSV', header=T, sep=',')
+ffData$date <- as.character(ffData$date)
 ffData$mkt <- ffData$mktrf + ffData$rf
 ffData$rf <- abs(ffData$rf)
-ffData$date <- as.character(ffData$date)
+
+ffDataMom <- fread('F-F_Momentum_Factor.CSV', header=T, sep=',')
+ffDataMom$date <- as.character(ffDataMom$date)
+
+# scale to decimal values
+ffData[, 2:ncol(ffData)] <- ffData[, 2:ncol(ffData)] / 100
+ffDataMom[, 2:ncol(ffDataMom)] <- ffDataMom[, 2:ncol(ffDataMom)] / 100
 
 # fliter Fama-French factors to match returns data
-dates <- sort(unique(data$date))
-datesFormatted <- format(sort(unique(data$date)), '%Y%m')
+dates <- sort(as.Date(unique(data$date)))
+datesFormatted <- format(dates, '%Y%m')
 ffDates.idxs <- which(ffData$date %in% datesFormatted)
+ffDatesMom.idxs <- which(ffDataMom$date %in% datesFormatted)
 
 stopifnot(length(ffDates.idxs) == length(dates))
+stopifnot(length(ffDatesMom.idxs) == length(dates))
 
-ffData <- cbind(dates, ffData[ffDates.idxs, !'date'])
+ffData <- cbind(dates, ffData[ffDates.idxs, !'date'], ffDataMom[ffDatesMom.idxs, 'mom'])
 colnames(ffData)[1] <- 'date'
 
 # write Fama-French factors data to CSV files
 fwrite(ffData, 'fama.french.factors.csv', sep=';')
-
-
 
 
 
