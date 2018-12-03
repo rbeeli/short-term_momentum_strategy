@@ -239,6 +239,8 @@ ggplot(data=plot.data, aes(x=date, group=variable)) +
 # plot newer date range
 plot.data.wide <- data.table(date=mwnd.dates, low.turnover=perf.pf.lowturnover, high.turnover=perf.pf.highturnover, combo=perf.pf.combo, market=perf.pf.market)
 plot.data.wide <- plot.data.wide[(nrow(plot.data.wide) - 20*12):nrow(plot.data.wide), ]
+plot.reset <- matrix(rep(as.matrix(plot.data.wide[1, 2:ncol(plot.data.wide)]), nrow(plot.data.wide)), nrow=nrow(plot.data.wide), byrow=T)
+plot.data.wide[, 2:ncol(plot.data.wide)] <- plot.data.wide[, 2:ncol(plot.data.wide)] - plot.reset
 plot.data <- melt(plot.data.wide, id.vars=c('date'))
 
 ggplot(data=plot.data, aes(x=date, group=variable)) +
@@ -254,26 +256,22 @@ ggplot(data=plot.data, aes(x=date, group=variable)) +
 
 
 cat('Sharpe market: ', sharpe.ratio(mwnd.ff$mkt, mwnd.ff$rf, 12))
-cat('t-stat market: ', unlist(t.test(mwnd.ff$mktrf)[1]))
 
 cat('Sharpe combo: ', sharpe.ratio(pf.rets.combo, mwnd.ff$rf, 12))
+
 cat('Beta combo: ', (function(rets) {
   # CAPM regression
   fit <- lm(rets - rf ~ mktrf, data=mwnd.ff)
   return(coef(fit)['mktrf'])
 })(pf.rets.combo))
-cat('t-stat combo: ', unlist(t.test(pf.rets.combo)[1]))
+
+cat('t-stat combo: ', unlist(t.test(pf.rets.combo.ex)[1]))
+
 cat('FF alpha: ', (function(rets) {
   # Fama-French 5 factor regression analysis
   fit <- lm(rets - rf ~ mktrf + smb + hml + cma + rmw, data=mwnd.ff)
   return(coef(fit)["(Intercept)"])
 })(pf.rets.combo))
-
-
-
-
-
-
 
 
 
