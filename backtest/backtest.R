@@ -129,7 +129,6 @@ for (month in 1:n.months) {
   turnover <- turnover[idx.intersect]
   marketCap <- marketCap[idx.intersect]
   
-  ####################
   # double sorts
   
   # value-weighted returns in each decile
@@ -138,7 +137,7 @@ for (month in 1:n.months) {
     return(weightedMean(rets, caps))
   }, n.rows, n.columns)
   
-  # value-weighted returns in each decile
+  # value-weighted excess returns in each decile
   ts.deciles.rets.ex[ , , month] <- doublesort.conditional.colbreaks(rets.ex, turnover, momentum, breakpoints.mom, function(rets) {
     caps <- mwnd.marketCap[month, which(stock.names %in% names(rets))]
     return(weightedMean(rets, caps))
@@ -227,9 +226,9 @@ plot.data <- melt(plot.data.wide, id.vars=c('date'))
 
 ggplot(data=plot.data, aes(x=date, group=variable)) +
   geom_line(aes(y=value, colour=variable)) +
-  labs(y="cumulative excess returns", x="") +
+  labs(y="Dollar value of investment", x="") +
   scale_x_date(date_breaks='48 months', labels=date_format("%m.%Y")) +
-  scale_y_continuous(labels=function(x) paste0(x*100, '%'), breaks=seq(-100, 100, by=2)) +
+  scale_y_continuous(labels=function(x) x*100, breaks=seq(-100, 100, by=2)) +
   scale_colour_manual('', values=c('low.turnover'='red', 'high.turnover'='black', 'combo'='green', 'market'='blue'),
                       labels=c('Short-term reversal', 'Short-term momentum', '50:50 combo', 'FF market')) +
   theme_hc() +
@@ -245,9 +244,9 @@ plot.data <- melt(plot.data.wide, id.vars=c('date'))
 
 ggplot(data=plot.data, aes(x=date, group=variable)) +
   geom_line(aes(y=value, colour=variable)) +
-  labs(y="cumulative excess returns", x="") +
+  labs(y="Dollar value of investment", x="") +
   scale_x_date(date_breaks='48 months', labels=date_format("%m.%Y")) +
-  scale_y_continuous(labels=function(x) paste0(x*100, '%'), breaks=seq(-100, 100, by=2)) +
+  scale_y_continuous(labels=function(x) x*100, breaks=seq(-100, 100, by=2)) +
   scale_colour_manual('', values=c('low.turnover'='red', 'high.turnover'='black', 'combo'='green', 'market'='blue'),
                       labels=c('Short-term reversal', 'Short-term momentum', '50:50 combo', 'FF market')) +
   theme_hc() +
