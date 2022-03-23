@@ -7,7 +7,7 @@ Short-term momentum trading strategy implemented for the lecture "Systematic ris
 ## Overview
 
 * Implementation in R
-* In accordance to paper:
+* In accordance to paper [Short-term Momentum (Medhat, Schmeling 2021)](https://academic.oup.com/rfs/article-abstract/35/3/1480/6286969):
 
     + Monthly pricing data from the Center for Research in Security Prices (CRSP)
 
